@@ -24,7 +24,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import java.util.Locale
 
-class MapViewModel : ViewModel(){
+class MapViewModel : ViewModel() {
     private val _userLocation = mutableStateOf<LatLng?>(null)
     val userLocation: State<LatLng?> = _userLocation
 
@@ -33,66 +33,49 @@ class MapViewModel : ViewModel(){
 
     val geofenceList = mutableListOf<Geofence>()
 
-    fun fetchUserLocation(context: Context, fusedLocationClient: FusedLocationProviderClient){
-        if(ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                    try {
-                        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000).apply {
-                            setMinUpdateDistanceMeters(10f)
-                            setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
-                            setWaitForAccurateLocation(true)
-                        }.build()
+    fun fetchUserLocation(context: Context, fusedLocationClient: FusedLocationProviderClient) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
 
-                        val locationCallback = object : LocationCallback() {
-                            override fun onLocationResult(locationResult: LocationResult) {
-                                locationResult.locations.firstOrNull()?.let {
-                                    val userLatLng = LatLng(it.latitude, it.longitude)
-                                    _userLocation.value = userLatLng
+            try {
 
-                                    getAddressForLocation(it.latitude, it.longitude, context)
-                                }
-                            }
-                        }
-
-                        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
-                    } catch (e: SecurityException) {
-                        Log.e("Perm Loc Revoked","Permission for location access was revoked: ${e.localizedMessage}")
-                    }
-                } else {
-                    Log.e("Back Loc Denied","Background Location permission is not granted.")
-                }
-            }
-
-            else{
-                try {
-
-                    val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000).apply {
+                val locationRequest =
+                    LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000).apply {
                         setMinUpdateDistanceMeters(10f)
                         setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
                         setWaitForAccurateLocation(true)
                     }.build()
 
-                    val locationCallback = object : LocationCallback() {
-                        override fun onLocationResult(locationResult: LocationResult) {
-                            locationResult.locations.firstOrNull()?.let {
-                                val userLatLng = LatLng(it.latitude, it.longitude)
-                                _userLocation.value = userLatLng
+                val locationCallback = object : LocationCallback() {
+                    override fun onLocationResult(locationResult: LocationResult) {
+                        locationResult.locations.firstOrNull()?.let {
+                            val userLatLng = LatLng(it.latitude, it.longitude)
+                            _userLocation.value = userLatLng
 
-                                // Get the address for the user's location
-                                getAddressForLocation(it.latitude, it.longitude, context)
-                            }
+                            // Get the address for the user's location
+                            getAddressForLocation(it.latitude, it.longitude, context)
                         }
                     }
-
-                    fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
-
-                } catch (e: SecurityException) {
-                    Log.e("Perm Loc Acc Removed", "Permission for location access was revoked: ${e.localizedMessage}")
                 }
+
+                fusedLocationClient.requestLocationUpdates(
+                    locationRequest,
+                    locationCallback,
+                    Looper.getMainLooper()
+                )
+
+            } catch (e: SecurityException) {
+                Log.e(
+                    "Perm Loc Acc Removed",
+                    "Permission for location access was revoked: ${e.localizedMessage}"
+                )
             }
+
         } else {
-            Log.e("Perm Loc Not Granted","Location permission is not granted.")
+            Log.e("Perm Loc Not Granted", "Location permission is not granted.")
         }
 
     }
@@ -100,9 +83,9 @@ class MapViewModel : ViewModel(){
     private fun getAddressForLocation(latitude: Double, longitude: Double, context: Context) {
         try {
             val geocoder = Geocoder(context, Locale.getDefault())
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 geocoder.getFromLocation(latitude, longitude, 1) { addresses ->
-                    if(addresses.isNotEmpty()) {
+                    if (addresses.isNotEmpty()) {
                         _userAddress.value = addresses[0].getAddressLine(0)
                     } else {
                         _userAddress.value = "Address not found"
@@ -110,18 +93,18 @@ class MapViewModel : ViewModel(){
                 }
             } else {
                 val addresses = geocoder.getFromLocation(latitude, longitude, 1)
-                if(addresses != null){
-                    if(addresses.isNotEmpty()) {
+                if (addresses != null) {
+                    if (addresses.isNotEmpty()) {
                         _userAddress.value =
                             addresses[0]?.getAddressLine(0)
-                    } else{
+                    } else {
                         _userAddress.value = "Address not found"
                     }
                 }
             }
 
         } catch (e: Exception) {
-            Log.e("Could not get address","Error getting address: ${e.message}")
+            Log.e("Could not get address", "Error getting address: ${e.message}")
             _userAddress.value = "Error retrieving address"
         }
     }
@@ -166,15 +149,27 @@ class MapViewModel : ViewModel(){
             .build()
 
         val intent = Intent(context, GeofenceBroadcastReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        )
 
-        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
             geofencingClient.addGeofences(geofencingRequest, pendingIntent)
                 .addOnSuccessListener {
                     Log.d("Geofences added", "Geofences added successfully")
                 }
                 .addOnFailureListener { e ->
-                    Log.e("Error adding geofences", "Failed to add geofences: ${e.localizedMessage}")
+                    Log.e(
+                        "Error adding geofences",
+                        "Failed to add geofences: ${e.localizedMessage}"
+                    )
                 }
         } else {
             Log.e("Permission", "Missing ACCESS_FINE_LOCATION permission for geofencing")
