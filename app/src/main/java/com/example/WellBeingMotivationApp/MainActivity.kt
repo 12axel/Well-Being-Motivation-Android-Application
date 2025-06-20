@@ -32,6 +32,10 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
+    private lateinit var activityRecognitionPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var cameraPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var fineLocationPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var backgroundLocationPermissionLauncher: ActivityResultLauncher<String>
 
     private val db by lazy {
         Room.databaseBuilder(
@@ -67,6 +71,49 @@ class MainActivity : ComponentActivity() {
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        activityRecognitionPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ){ granted ->
+            if(!granted){
+                Log.e("Activity Recognition Perm Denied", "Activity Recognition permission was denied by the user.")
+            }
+            checkForPermissions(activityRecognitionPermissionLauncher, cameraPermissionLauncher, fineLocationPermissionLauncher, backgroundLocationPermissionLauncher, 1)
+        }
+
+        cameraPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ){  granted ->
+            if(!granted){
+                Log.e("Camera Perm Denied", "Camera permission was denied by the user.")
+            }
+            checkForPermissions(activityRecognitionPermissionLauncher, cameraPermissionLauncher, fineLocationPermissionLauncher, backgroundLocationPermissionLauncher, 2)
+        }
+
+        fineLocationPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if(granted){
+                mapViewModel.fetchUserLocation(this, fusedLocationClient)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && (ContextCompat.checkSelfPermission(
+                        this,
+                        android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                    ) != PackageManager.PERMISSION_GRANTED)) {
+                    backgroundLocationPermissionLauncher.launch(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                }
+                else {
+                    mapViewModel.createGeofences(this)
+                }
+            }
+        }
+
+        backgroundLocationPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if(granted){
+                mapViewModel.createGeofences(this)
+            }
+        }
+
         permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
@@ -84,7 +131,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        checkForPermissions(permissionLauncher)
+
+
+        checkForPermissions(activityRecognitionPermissionLauncher, cameraPermissionLauncher, fineLocationPermissionLauncher, backgroundLocationPermissionLauncher, 0)
 
         //val context = applicationContext
         //val db = Room.databaseBuilder(context, DailyRecordDatabase::class.java, "daily_record.db").build()
@@ -126,7 +175,7 @@ class MainActivity : ComponentActivity() {
                     Math.min(60, ((it.timeSpentWalking.toFloat() / 1800000) * 60).toInt())
                 val updatedRecord = it.copy(
                     moodPoints =
-                    smileProportionalityPoints + stepsTakenPoints + visitedRecCenterPoints + visitedCampusCenterPoints + visitedMorganPoints + timeSpentRunning + timeSpentWalking
+                        smileProportionalityPoints + stepsTakenPoints + visitedRecCenterPoints + visitedCampusCenterPoints + visitedMorganPoints + timeSpentRunning + timeSpentWalking
                 )
                 DbViewModel.updateRecord(updatedRecord)
             }
@@ -182,33 +231,49 @@ class MainActivity : ComponentActivity() {
         MidnightTaskViewModel.cancelMidnightTask()
     }
 
-    private fun checkForPermissions(permissionLauncher: ActivityResultLauncher<Array<String>>) {
-        if ((ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED) &&
-            (ContextCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED)
-        ) {
-            mapViewModel.fetchUserLocation(this, fusedLocationClient)
-            mapViewModel.createGeofences(this)
+    private fun checkForPermissions(activityRecognitionPermissionLauncher: ActivityResultLauncher<String>, cameraPermissionLauncher: ActivityResultLauncher<String>, fineLocationPermissionLauncher: ActivityResultLauncher<String>, backgroundLocationPermissionLauncher: ActivityResultLauncher<String>, startIndex: Int) {
 
-        } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                permissionLauncher.launch(
-                    arrayOf(
-                        android.Manifest.permission.ACCESS_FINE_LOCATION,
-                        android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                    )
-                )
-            } else {
-                permissionLauncher.launch(
-                    arrayOf(
-                        android.Manifest.permission.ACCESS_FINE_LOCATION
-                    )
-                )
+        for (i in startIndex until 3){
+            if(i == 0 && (ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACTIVITY_RECOGNITION
+                ) != PackageManager.PERMISSION_GRANTED)) {
+                activityRecognitionPermissionLauncher.launch(android.Manifest.permission.ACTIVITY_RECOGNITION)
+                break
+            }
+
+            if(i == 1 && (ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.CAMERA
+                ) != PackageManager.PERMISSION_GRANTED)) {
+                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                break
+            }
+
+            if (i > 1) {
+                var fineLocationPermission = (ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED)
+
+                if (!fineLocationPermission){
+                    fineLocationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                }
+                else {
+                    mapViewModel.fetchUserLocation(this, fusedLocationClient)
+
+                    var backgroundLocationPermission = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) true
+                    else (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+                            PackageManager.PERMISSION_GRANTED
+                            )
+
+                    if(!backgroundLocationPermission) {
+                        backgroundLocationPermissionLauncher.launch(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                    }
+                    else {
+                        mapViewModel.createGeofences(this)
+                    }
+                }
             }
         }
     }
