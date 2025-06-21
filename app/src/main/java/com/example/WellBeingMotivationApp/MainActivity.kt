@@ -31,7 +31,6 @@ import java.time.LocalDate
 class MainActivity : ComponentActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var activityRecognitionPermissionLauncher: ActivityResultLauncher<String>
     private lateinit var cameraPermissionLauncher: ActivityResultLauncher<String>
     private lateinit var fineLocationPermissionLauncher: ActivityResultLauncher<String>
@@ -113,25 +112,6 @@ class MainActivity : ComponentActivity() {
                 mapViewModel.createGeofences(this)
             }
         }
-
-        permissionLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { permissions ->
-            val fineGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true
-            val backgroundGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                permissions[android.Manifest.permission.ACCESS_BACKGROUND_LOCATION] == true
-            } else {
-                true
-            }
-
-            if (fineGranted && backgroundGranted) {
-                mapViewModel.fetchUserLocation(this, fusedLocationClient)
-            } else {
-                Log.e("Loc Perm Denied", "Location permission was denied by the user.")
-            }
-        }
-
-
 
         checkForPermissions(activityRecognitionPermissionLauncher, cameraPermissionLauncher, fineLocationPermissionLauncher, backgroundLocationPermissionLauncher, 0)
 
